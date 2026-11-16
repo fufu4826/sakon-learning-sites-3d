@@ -1,0 +1,43 @@
+export type Item = {
+  id: string;
+  collectionId: string;
+  name: string;
+  description: string;
+  model: string | null;
+  /** iPhone/iPad AR file (USDZ); optional, the GLB is converted on the device when absent. */
+  usdz?: string | null;
+  thumbnail: string | null;
+  audio: string | null;
+};
+
+export type Collection = {
+  id: string;
+  name: string;
+  description: string;
+  image: string | null;
+};
+
+export type Community = {
+  slug: string;
+  id?: string;
+  englishName?: string | null;
+  tagline?: string | null;
+  tags?: string | null;
+  theme?: string;
+  name: string;
+  shortName: string;
+  location: string;
+  description: string;
+  /** [lat, lng] — ตำแหน่งหมุดบนแผนที่ */
+  position: [number, number];
+  color: string;
+  cover: string | null;
+  /** วีดิทัศน์แนะนำแหล่งเรียนรู้ (ไฟล์ .mp4 / .webm) */
+  video?: string | null;
+  collections: Collection[];
+  items: Item[];
+  recommended: string[];
+  /** ยังไม่มีข้อมูล แสดงเป็นหมุด "รอข้อมูล" */
+  placeholder?: boolean;
+};
+

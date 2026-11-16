@@ -1,0 +1,1595 @@
+/* ========================================================
+   Map page (MapWorkstation.tsx): scoped styles, unlayered so they override the reset.
+   ======================================================== */
+
+/* ---------- Site labels on the map (3D and 2D) ---------- */
+/* 3D & 2D Map Floating Pin Badges (No numbers, clean icon + text) */
+.mw-pin-pill {
+  padding: 5px 13px 5px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1.5px solid #e7ded5;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.mw-pin-pill:hover {
+  border-color: #ea580c;
+}
+
+.mw-pin-pill.hover {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.28), 0 8px 20px rgba(0, 0, 0, 0.26);
+}
+
+.mw-pin-pill.active {
+  background: #ffffff;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.35), 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.mw-pin-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #ea580c;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mw-pin-pill.active .mw-pin-icon {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #ffffff;
+}
+
+.mw-pin-text {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1c1917;
+}
+
+/* Icon-only label: set on a pin whose full name would run past the edge of the map (3D: on the
+   badge wrapper, 2D: on the pill). The selected pin never gets it. */
+[data-compact="1"] .mw-pin-pill,
+.mw-pin-pill[data-compact="1"] {
+  padding: 5px;
+  gap: 0;
+}
+[data-compact="1"] .mw-pin-text,
+.mw-pin-pill[data-compact="1"] .mw-pin-text {
+  display: none;
+}
+
+/* 2D Map (Leaflet) Custom Markers & Controls */
+/* 2D labels are flipped/nudged by LabelFitter (LeafletMap.tsx), which measures them right after
+   moving them; an animated transform/margin would make it read the old position. */
+.mw-2d-pill {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+.mw-leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.mw-2d-dot {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #ea580c;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.mw-2d-dot.active {
+  width: 18px;
+  height: 18px;
+  top: -9px;
+  left: -9px;
+  background: #881337;
+  box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.35), 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+.mw-2d-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: pointer;
+}
+
+.mw-viewport .leaflet-bottom.leaflet-right {
+  bottom: 16px;
+  right: 16px;
+}
+
+.mw-viewport .leaflet-bar {
+  border: 1px solid rgba(226, 215, 203, 0.95) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14) !important;
+}
+
+.mw-viewport .leaflet-bar a {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  color: #44403c !important;
+  font-weight: 700 !important;
+}
+
+.mw-viewport .leaflet-bar a:hover {
+  background: #fff7ed !important;
+  color: #ea580c !important;
+}
+
+
+/* ========================================================
+   Layout: map on the left, the five sites on the right (wide screens);
+   map above a sheet with the sites (phones, see the end of this file).
+   ======================================================== */
+.mw-shell {
+  /* Own layer: the map's controls, card and sheet stack among themselves and always stay under
+     the site's sticky top bar, even when the page is scrolled. */
+  isolation: isolate;
+  width: 100%;
+  height: calc(100vh - 109px);
+  min-height: 600px;
+  max-height: calc(100vh - 109px);
+  background: #f5efe8;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: row;
+  gap: 18px;
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-thai, var(--font-prompt), sans-serif);
+}
+.mw-shell:fullscreen {
+  height: 100vh;
+  max-height: 100vh;
+}
+
+.mw-viewport {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid #e2d7cb;
+  box-shadow: 0 12px 32px -8px rgba(38, 4, 11, 0.14);
+  background: radial-gradient(ellipse at 50% 44%, #263850 0%, #142033 65%, #0c1422 100%);
+}
+
+/* ---------- What to do first ---------- */
+.mw-hint {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1100;
+  max-width: calc(100% - 230px);
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 215, 203, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #292524;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  pointer-events: none;
+  animation: mw-hint-in 0.5s ease 0.6s both;
+}
+.mw-hint i {
+  color: #ea580c;
+  animation: mw-hint-tap 1.6s ease-in-out 1.2s 3;
+}
+@keyframes mw-hint-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mw-hint-tap {
+  0%, 100% { transform: none; }
+  50% { transform: translateY(3px) scale(0.92); }
+}
+
+/* ---------- "มุมมองแผนที่" menu (MapViewMenu.tsx) ---------- */
+.mw-view-anchor {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1150;
+}
+.mw-view {
+  position: relative;
+}
+.mw-view-btn {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 215, 203, 0.95);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #292524;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mw-view-btn > .fa-layer-group {
+  color: #ea580c;
+}
+.mw-view-btn:hover,
+.mw-view-btn.open {
+  border-color: #ea580c;
+}
+.mw-view-caret {
+  font-size: 10px;
+  color: #78716c;
+  transition: transform 0.2s ease;
+}
+.mw-view-btn.open .mw-view-caret {
+  transform: rotate(180deg);
+}
+.mw-view-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 250px;
+  padding: 6px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e7ded5;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  animation: mw-hint-in 0.16s ease both;
+}
+.mw-view-group {
+  margin: 8px 10px 2px;
+  color: #a8a29e;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mw-view-group small {
+  font-weight: 500;
+}
+.mw-view-item {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #292524;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.mw-view-item:hover:not(:disabled),
+.mw-view-item:focus-visible {
+  background: #faf5ef;
+}
+.mw-view-item:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.mw-view-item small {
+  display: block;
+  color: #78716c;
+  font-size: 11.5px;
+}
+.mw-view-mark {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #d6cdc4;
+  background: #fff;
+}
+.mw-view-mark.radio {
+  border-radius: 999px;
+}
+.mw-view-mark.check {
+  position: relative;
+  border-radius: 5px;
+}
+.mw-view-item[aria-checked="true"] .mw-view-mark.radio {
+  border-color: #ea580c;
+  background: radial-gradient(circle, #ea580c 0 4px, #fff 4.5px);
+}
+.mw-view-item[aria-checked="true"] .mw-view-mark.check {
+  border-color: #ea580c;
+  background: #ea580c;
+}
+.mw-view-item[aria-checked="true"] .mw-view-mark.check::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.mw-view-icon {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: #78716c;
+}
+.mw-view-sep {
+  height: 1px;
+  margin: 6px 6px;
+  background: #f0e8df;
+}
+
+/* ---------- Compass (3D map, bottom-left) ---------- */
+.mw-compass {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+.mw-compass-needle {
+  position: absolute;
+  inset: 0;
+}
+.mw-compass-needle::before,
+.mw-compass-needle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+}
+.mw-compass-needle::before {
+  top: 13px;
+  border-bottom: 10px solid #dc2626;
+}
+.mw-compass-needle::after {
+  top: 23px;
+  border-top: 10px solid #a8a29e;
+}
+.mw-compass-n {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #dc2626;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 12px;
+}
+.mw-viewport .mw-sat-credit {
+  left: 70px;
+  right: 16px;
+  bottom: 6px;
+}
+
+/* ---------- Selected site's card (MapSiteCard.tsx) ---------- */
+.mw-site-card {
+  position: relative;
+  width: 320px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #e7ded5;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  color: #292524;
+  text-align: left;
+  user-select: text;
+}
+.mw-site-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  color: #44403c;
+  font-size: 16px;
+  cursor: pointer;
+}
+.mw-site-close:hover {
+  color: #1c1917;
+  background: #fff;
+}
+.mw-site-cover {
+  aspect-ratio: 16 / 9;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, #881337 0%, #ea580c 100%);
+  display: grid;
+  place-items: center;
+}
+.mw-site-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mw-site-cover-icon {
+  color: #fff;
+  font-size: 40px;
+  opacity: 0.9;
+}
+.mw-site-body {
+  padding: 14px 18px 14px;
+}
+.mw-site-title {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #1c1917;
+  font-size: 16px !important;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.mw-site-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-top: -2px;
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #ea580c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+.mw-site-desc {
+  margin: 8px 0 0;
+  color: #57534e;
+  font-size: 13.5px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.mw-site-meta {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #78716c;
+  font-size: 13px;
+}
+.mw-site-meta i {
+  color: #ea580c;
+}
+.mw-site-cta {
+  margin-top: 14px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #881337 0%, #ea580c 100%);
+  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.32);
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 700;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.mw-site-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(234, 88, 12, 0.42);
+}
+.mw-site-nav {
+  margin-top: 6px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #78716c;
+  font-size: 13px;
+  font-weight: 500;
+}
+.mw-site-nav .fa-location-dot {
+  color: #e11d48;
+}
+.mw-site-nav:hover {
+  color: #c2410c;
+}
+.mw-site-ext {
+  font-size: 10px;
+}
+
+/* Wide screens: the card is docked at the top-left of the map, beside the site it describes. */
+.mw-site-card--dock {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1100;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  animation: mw-card-dock-in 0.3s ease both;
+}
+@keyframes mw-card-dock-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+/* Short screens: a lower cover keeps the whole card in view. */
+@media (max-height: 760px) and (min-width: 769px) {
+  .mw-site-card--dock .mw-site-cover {
+    aspect-ratio: 16 / 7;
+  }
+}
+
+/* ---------- The five sites (right-hand panel; a sheet on phones) ---------- */
+.mw-panel {
+  width: 360px;
+  height: 100%;
+  min-height: 0;
+  flex-shrink: 0;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid #e2d7cb;
+  box-shadow: 0 12px 32px -8px rgba(38, 4, 11, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mw-panel-head {
+  flex: none;
+  padding: 20px 20px 12px;
+}
+.mw-panel-title {
+  margin: 0;
+  color: #1c1917;
+  font-size: 18px !important;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.mw-panel-sub {
+  margin: 4px 0 0;
+  color: #78716c;
+  font-size: 13.5px;
+}
+.mw-rows {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 14px 16px;
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mw-row {
+  width: 100%;
+  min-height: 66px;
+  padding: 11px 14px;
+  border-radius: 16px;
+  border: 1.5px solid #ede5dc;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #292524;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.mw-row:hover,
+.mw-row:focus-visible {
+  border-color: #fdba74;
+  background: #fffaf5;
+}
+.mw-row.active {
+  border-color: #ea580c;
+  background: #fffaf5;
+  box-shadow: inset 4px 0 0 #ea580c, 0 6px 16px rgba(234, 88, 12, 0.12);
+}
+.mw-row-icon {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #ea580c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+.mw-row.active .mw-row-icon {
+  background: linear-gradient(135deg, #881337 0%, #ea580c 100%);
+  border-color: transparent;
+  color: #fff;
+}
+.mw-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.mw-row-text strong {
+  display: block;
+  color: #1c1917;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.mw-row-text small {
+  display: block;
+  margin-top: 2px;
+  color: #78716c;
+  font-size: 12.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mw-row-go {
+  flex: none;
+  color: #c9b9aa;
+  font-size: 12px;
+}
+.mw-row:hover .mw-row-go,
+.mw-row.active .mw-row-go {
+  color: #ea580c;
+}
+
+/* Shown over the 2D map when the device cannot draw the 3D one. */
+.mw-fallback-note {
+  position: absolute;
+  left: 50%;
+  top: 70px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  color: #44403c;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Line from a label to its model when the label had to move to stay clear of another one. */
+.mw-pin-leader {
+  position: absolute;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mw-hint,
+  .mw-hint i,
+  .mw-view-menu,
+  .mw-site-card--dock {
+    animation: none;
+  }
+}
+
+/* ---------- Tablets: map above, list below ---------- */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .mw-shell {
+    flex-direction: column;
+    height: auto;
+    max-height: none;
+  }
+  .mw-viewport {
+    flex: none;
+    height: min(70vh, 600px);
+    min-height: 440px;
+  }
+  .mw-panel {
+    width: 100%;
+    height: auto;
+  }
+  .mw-rows {
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Phones: the map fills the screen under the menu bar, the five sites are a sheet
+   along the bottom. Peek: heading and the first rows; open: the whole list; card: the selected
+   site. The page itself does not scroll here, only the sheet's content does. ---------- */
+@media (max-width: 768px) {
+  .mw-shell {
+    position: relative;
+    display: block;
+    height: calc(100vh - 75px);
+    height: calc(100dvh - 75px);
+    max-height: none;
+    min-height: 480px;
+    padding: 0;
+  }
+  .mw-viewport {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: calc(100% - 104px);
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+  }
+  .mw-hint {
+    top: 12px;
+    left: 12px;
+    max-width: calc(100% - 84px);
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+  .mw-view-anchor {
+    top: 12px;
+    right: 12px;
+  }
+  .mw-view-btn {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .mw-view-btn-text,
+  .mw-view-caret {
+    display: none;
+  }
+  .mw-view-menu {
+    width: min(270px, calc(100vw - 24px));
+  }
+  .mw-view-item {
+    min-height: 46px;
+  }
+  .mw-compass {
+    left: 12px;
+    bottom: 32px;
+  }
+  .mw-viewport .mw-sat-credit {
+    left: 64px;
+    right: 12px;
+    bottom: 26px;
+  }
+  .mw-viewport .leaflet-bottom.leaflet-right {
+    bottom: 22px;
+  }
+
+  .mw-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1200;
+    width: auto;
+    height: 128px;
+    border: 0;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+    transition: height 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  .mw-shell[data-sheet="open"] .mw-panel {
+    height: 74%;
+  }
+  .mw-shell[data-sheet="card"] .mw-panel {
+    height: auto;
+    max-height: 82%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .mw-sheet-grip {
+    flex: none;
+    touch-action: none;
+  }
+  .mw-sheet-handle {
+    width: 100%;
+    height: 34px;
+    border: 0;
+    background: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .mw-sheet-handle span {
+    width: 46px;
+    height: 5px;
+    border-radius: 3px;
+    background: #d6cdc4;
+  }
+  .mw-panel-head {
+    padding: 0 12px 8px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .mw-panel-title {
+    font-size: 16px !important;
+  }
+  .mw-panel-more {
+    flex: none;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: #fff7ed;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #c2410c;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .mw-panel-more i {
+    font-size: 11px;
+  }
+  /* Lowered sheet: the five sites in one row that scrolls sideways. */
+  .mw-chips {
+    display: flex;
+    gap: 8px;
+    padding: 0 14px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .mw-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .mw-chip {
+    flex: none;
+    min-height: 44px;
+    padding: 0 14px 0 6px;
+    border: 1.5px solid #ede5dc;
+    border-radius: 999px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #1c1917;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .mw-chip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #ea580c;
+    font-size: 13px;
+  }
+  .mw-chip.lit {
+    border-color: #ea580c;
+    background: #fff7ed;
+  }
+  .mw-chip.lit .mw-chip-icon {
+    background: #ea580c;
+    color: #fff;
+  }
+
+  /* The selected site, as a compact strip in the sheet. */
+  .mw-site-card--sheet {
+    width: auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 0 16px 14px;
+  }
+  .mw-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mw-sheet-thumb {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #881337 0%, #ea580c 100%);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 24px;
+  }
+  .mw-sheet-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .mw-sheet-titles {
+    flex: 1;
+    min-width: 0;
+  }
+  .mw-sheet-name {
+    margin: 0;
+    color: #1c1917;
+    font-size: 17px !important;
+    font-weight: 800;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+  .mw-sheet-full {
+    display: block;
+    color: #78716c;
+    font-size: 12.5px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mw-sheet-meta {
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #78716c;
+    font-size: 13px;
+  }
+  .mw-sheet-meta .fa-cube {
+    color: #ea580c;
+  }
+  .mw-sheet-meta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 32px;
+    color: #c2410c;
+    font-weight: 600;
+  }
+  .mw-sheet-meta .fa-location-dot {
+    color: #e11d48;
+  }
+  .mw-sheet-close {
+    flex: none;
+    align-self: flex-start;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 999px;
+    background: #f4ede6;
+    color: #57534e;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .mw-sheet-desc {
+    margin: 10px 0 0;
+    color: #57534e;
+    font-size: 13.5px;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+  .mw-sheet-cta {
+    margin-top: 12px;
+    min-height: 50px;
+  }
+  .mw-site-card--sheet .mw-site-next {
+    width: 100%;
+    margin: 10px 0 0;
+    min-height: 56px;
+    border-radius: 16px;
+  }
+  .mw-rows {
+    padding: 2px 12px 20px;
+    overflow: hidden;
+  }
+  .mw-shell[data-sheet="open"] .mw-rows {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .mw-row {
+    min-height: 60px;
+    padding: 9px 12px;
+  }
+  .mw-row-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 15px;
+  }
+
+}
+
+/* Very narrow phones: shorter hint, smaller pins (the five sites sit close together). */
+@media (max-width: 480px) {
+  .mw-pin-pill {
+    padding: 3px 9px 3px 4px;
+    gap: 5px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+  }
+  .mw-pin-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+  }
+  .mw-pin-text {
+    font-size: 11px;
+  }
+  [data-compact="1"] .mw-pin-pill,
+  .mw-pin-pill[data-compact="1"] {
+    padding: 3px;
+  }
+}
+
+/* ---------- "เริ่มเรียนรู้": picks a site at random (MapWorkstation startRandom) ---------- */
+.mw-start {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  z-index: 1100;
+  transform: translateX(-50%);
+  min-height: 56px;
+  padding: 0 30px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #881337 0%, #ea580c 100%);
+  box-shadow: 0 10px 28px rgba(136, 19, 55, 0.45), 0 0 0 4px rgba(255, 255, 255, 0.85);
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: mw-start-pulse 2.2s ease-in-out infinite;
+}
+.mw-start i {
+  font-size: 20px;
+}
+.mw-start:hover {
+  filter: brightness(1.08);
+}
+.mw-start:disabled {
+  cursor: progress;
+  animation: none;
+}
+.mw-start.spinning i {
+  animation: mw-dice-roll 0.5s linear infinite;
+}
+@keyframes mw-start-pulse {
+  0%, 100% { box-shadow: 0 10px 28px rgba(136, 19, 55, 0.45), 0 0 0 4px rgba(255, 255, 255, 0.85); }
+  50% { box-shadow: 0 10px 28px rgba(136, 19, 55, 0.45), 0 0 0 4px rgba(255, 255, 255, 0.85), 0 0 0 14px rgba(234, 88, 12, 0.22); }
+}
+@keyframes mw-dice-roll {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+/* The site lit by the roulette, in the list. */
+.mw-row.lit {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+.mw-row.lit .mw-row-icon {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #fff;
+}
+.mw-row:disabled {
+  cursor: progress;
+}
+@media (max-width: 768px) {
+  .mw-start {
+    bottom: 40px;
+    min-height: 52px;
+    padding: 0 24px;
+    font-size: 17px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mw-start,
+  .mw-start.spinning i {
+    animation: none;
+  }
+}
+
+/* Card: "ถัดไป" to the next site in the list, a solid bar along the bottom of the card
+   (deep maroon, so it stands out without competing with the orange main button). */
+.mw-site-next {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px 10px 20px;
+  border: 0;
+  border-radius: 0 0 20px 20px;
+  background: linear-gradient(135deg, #4c0b1d 0%, #881337 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #ffffff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.mw-site-next:hover,
+.mw-site-next:focus-visible {
+  filter: brightness(1.12);
+}
+.mw-site-next-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* "ถัดไป" large, the next site's name and position small under it. */
+.mw-site-next-text strong {
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.mw-site-next-text small {
+  margin-top: 2px;
+  color: #fed7aa;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mw-site-next > i {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #ea580c;
+  font-size: 15px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  animation: mw-next-nudge 1.8s ease-in-out infinite;
+}
+@keyframes mw-next-nudge {
+  0%, 60%, 100% { transform: none; }
+  30% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mw-site-next > i {
+    animation: none;
+  }
+}
+
+/* ---------- Phones: the site's top bar folds away on the map page ---------- */
+.mw-bar-toggle {
+  display: none;
+}
+@media (max-width: 768px) {
+  body:has(.mw-shell[data-bar="folded"]) .top-announcement,
+  body:has(.mw-shell[data-bar="folded"]) .navbar {
+    display: none;
+  }
+  .mw-shell[data-bar="folded"] {
+    height: 100vh;
+    height: 100dvh;
+  }
+  .mw-bar-toggle {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1150;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(226, 215, 203, 0.95);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+    color: #4c0b1d;
+    font-size: 17px;
+    cursor: pointer;
+  }
+  /* The hint moves over to make room for the toggle. */
+  .mw-hint {
+    left: 64px;
+    max-width: calc(100% - 128px);
+  }
+}
+
+/* Narrow phones: the hint stays on one line (Thai words must not split). */
+@media (max-width: 400px) {
+  .mw-hint {
+    white-space: nowrap;
+    font-size: 12.5px;
+    padding: 9px 12px;
+    gap: 7px;
+  }
+}
+
+/* ---------- How to turn the map (MapGestureHint.tsx) ---------- */
+.mw-gesture {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 1080;
+  transform: translate(-50%, -50%);
+  width: min(320px, calc(100% - 40px));
+  padding: 18px 20px 16px;
+  border-radius: 22px;
+  background: rgba(20, 14, 18, 0.72);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+  animation: mw-gesture-in 0.45s ease both;
+}
+.mw-gesture.leaving {
+  animation: mw-gesture-out 0.45s ease both;
+}
+@keyframes mw-gesture-in {
+  from { opacity: 0; transform: translate(-50%, -44%) scale(0.94); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+@keyframes mw-gesture-out {
+  to { opacity: 0; transform: translate(10%, 60%) scale(0.25); }
+}
+.mw-gesture-track {
+  position: relative;
+  height: 64px;
+  margin: 0 auto 10px;
+  width: 200px;
+}
+.mw-gesture-arrow {
+  position: absolute;
+  top: 50%;
+  margin-top: -9px;
+  font-size: 18px;
+  color: #fdba74;
+}
+.mw-gesture-arrow.left {
+  left: 0;
+  animation: mw-gesture-arrow-l 2.4s ease-in-out infinite;
+}
+.mw-gesture-arrow.right {
+  right: 0;
+  animation: mw-gesture-arrow-r 2.4s ease-in-out infinite;
+}
+/* The path the hand travels along. */
+.mw-gesture-trail {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  top: 50%;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(253, 186, 116, 0.75), transparent);
+}
+.mw-gesture-hand {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  color: #fff;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  animation: mw-gesture-drag 2.4s ease-in-out infinite;
+}
+/* A ring where the press starts, so it reads as "press and drag". */
+.mw-gesture-press {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 22px;
+  height: 22px;
+  margin-left: -15px;
+  border: 2px solid #fdba74;
+  border-radius: 999px;
+  opacity: 0;
+  animation: mw-gesture-ring 2.4s ease-out infinite;
+}
+@keyframes mw-gesture-drag {
+  0% { transform: translateX(0); }
+  10% { transform: translateX(0) scale(0.9); }
+  35% { transform: translateX(-62px) scale(0.9); }
+  65% { transform: translateX(62px) scale(0.9); }
+  85% { transform: translateX(0) scale(0.9); }
+  100% { transform: translateX(0); }
+}
+@keyframes mw-gesture-ring {
+  0%, 6% { opacity: 0; transform: scale(0.5); }
+  12% { opacity: 1; transform: scale(1); }
+  30% { opacity: 0; transform: scale(1.7); }
+  100% { opacity: 0; }
+}
+@keyframes mw-gesture-arrow-l {
+  0%, 20%, 50%, 100% { opacity: 0.35; transform: none; }
+  35% { opacity: 1; transform: translateX(-4px); }
+}
+@keyframes mw-gesture-arrow-r {
+  0%, 50%, 80%, 100% { opacity: 0.35; transform: none; }
+  65% { opacity: 1; transform: translateX(4px); }
+}
+.mw-gesture-text {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.mw-gesture-text span,
+.mw-gesture-sub span {
+  white-space: nowrap;
+}
+.mw-gesture-sub {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+}
+@media (max-width: 768px) {
+  .mw-gesture {
+    top: 42%;
+    width: min(300px, calc(100% - 32px));
+  }
+  .mw-gesture-text {
+    font-size: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mw-gesture,
+  .mw-gesture.leaving,
+  .mw-gesture-hand,
+  .mw-gesture-press,
+  .mw-gesture-arrow.left,
+  .mw-gesture-arrow.right {
+    animation: none;
+  }
+  .mw-gesture.leaving {
+    opacity: 0;
+  }
+}
+
+/* Small reminder in the bottom-right corner once the visitor has tried (press: large hint again). */
+.mw-gesture-mini {
+  position: absolute;
+  right: 16px;
+  bottom: 30px;
+  z-index: 1080;
+  min-height: 44px;
+  padding: 0 16px 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(20, 14, 18, 0.72);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  animation: mw-gesture-mini-in 0.4s ease both;
+}
+.mw-gesture-mini:hover {
+  background: rgba(20, 14, 18, 0.85);
+}
+.mw-gesture-mini-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 15px;
+}
+.mw-gesture-mini-icon .fa-caret-left,
+.mw-gesture-mini-icon .fa-caret-right {
+  font-size: 11px;
+  color: #fdba74;
+}
+.mw-gesture-mini-icon > i:nth-child(2) {
+  animation: mw-gesture-sway 2.4s ease-in-out infinite;
+}
+@keyframes mw-gesture-sway {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-3px); }
+  70% { transform: translateX(3px); }
+}
+@keyframes mw-gesture-mini-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@media (max-width: 768px) {
+  /* Phones: icon only, level with the compass, clear of the "เริ่มเรียนรู้" button. */
+  .mw-gesture-mini {
+    right: 12px;
+    bottom: 32px;
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .mw-gesture-mini-text {
+    display: none;
+  }
+  .mw-gesture-mini-icon .fa-caret-left,
+  .mw-gesture-mini-icon .fa-caret-right {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mw-gesture-mini,
+  .mw-gesture-mini-icon > i:nth-child(2) {
+    animation: none;
+  }
+}
+
+/* ---------- Wide screens: the five rows share the panel's height, each with its cover ---------- */
+@media (min-width: 1025px) {
+  .mw-rows {
+    gap: 10px;
+  }
+  .mw-rows > li {
+    flex: 1 1 0;
+    min-height: 92px;
+    display: flex;
+  }
+}
+@media (min-width: 769px) {
+  .mw-row {
+    height: 100%;
+    padding: 10px 14px 10px 10px;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .mw-row-thumb {
+    position: relative;
+    flex: none;
+    width: clamp(84px, 30%, 128px);
+    border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #881337 0%, #ea580c 100%);
+  }
+  .mw-row-thumb img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+  .mw-row:hover .mw-row-thumb img {
+    transform: scale(1.05);
+  }
+  .mw-row-badge {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #ea580c;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+  .mw-row.active .mw-row-badge,
+  .mw-row.lit .mw-row-badge {
+    background: #ea580c;
+    color: #fff;
+  }
+  .mw-row-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+  .mw-row-text strong {
+    font-size: 16px;
+  }
+  .mw-row-text .mw-row-full {
+    margin-top: 0;
+    color: #a8a29e;
+    font-size: 12px;
+  }
+  .mw-row-text .mw-row-desc {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    color: #57534e;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  /* Number of models, on the thumbnail's top-right corner. */
+  .mw-row-count {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(20, 14, 18, 0.72);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .mw-row-count i {
+    color: #fdba74;
+    font-size: 10px;
+  }
+  .mw-row-go {
+    align-self: center;
+  }
+}
+/* Tablets: a smaller thumbnail in the two-column list. */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .mw-row-thumb {
+    width: 84px;
+    min-height: 72px;
+  }
+}
+/* Phones never show the wide-screen row parts (they can flash before the layout settles). */
+@media (max-width: 768px) {
+  .mw-row-thumb,
+  .mw-row-full,
+  .mw-row-desc {
+    display: none;
+  }
+}
